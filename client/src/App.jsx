@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 
 const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
 
 const emptyForm = {
   assetName: "",
@@ -20,6 +21,7 @@ function App() {
 
   async function loadAssets() {
     setLoading(true);
+    setMessage("");
 
     try {
       const response = await fetch(`${API_URL}/api/assets`);
@@ -28,9 +30,11 @@ function App() {
         throw new Error("Could not load assets.");
       }
 
-      setAssets(await response.json());
+      const data = await response.json();
+      setAssets(data);
     } catch (error) {
-      setMessage(error.message);
+      console.error(error);
+      setMessage(error.message || "Could not load assets.");
     } finally {
       setLoading(false);
     }
@@ -69,6 +73,14 @@ function App() {
   function cancelEdit() {
     setEditingId(null);
     setForm(emptyForm);
+
+    const fileInput = document.querySelector(
+      'input[name="file"]'
+    );
+
+    if (fileInput) {
+      fileInput.value = "";
+    }
   }
 
   async function handleSubmit(event) {
@@ -98,10 +110,18 @@ function App() {
         body: formData
       });
 
-      const data = await response.json();
+      let data = {};
+
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
 
       if (!response.ok) {
-        throw new Error(data.message || "Request failed.");
+        throw new Error(
+          data.message || "Request failed."
+        );
       }
 
       setMessage(
@@ -123,7 +143,10 @@ function App() {
 
       await loadAssets();
     } catch (error) {
-      setMessage(error.message);
+      console.error(error);
+      setMessage(
+        error.message || "Something went wrong."
+      );
     }
   }
 
@@ -132,7 +155,11 @@ function App() {
       "Delete this asset and its uploaded document?"
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
+
+    setMessage("");
 
     try {
       const response = await fetch(
@@ -142,33 +169,54 @@ function App() {
         }
       );
 
-      const data = await response.json();
+      let data = {};
+
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
 
       if (!response.ok) {
-        throw new Error(data.message || "Delete failed.");
+        throw new Error(
+          data.message || "Delete failed."
+        );
       }
 
       setMessage("Asset deleted.");
       await loadAssets();
     } catch (error) {
-      setMessage(error.message);
+      console.error(error);
+      setMessage(
+        error.message || "Delete failed."
+      );
     }
   }
 
   return (
     <main className="page">
       <section className="hero">
-        <p className="eyebrow">Azure CRUD Demo</p>
+        <p className="eyebrow">
+          Azure CRUD Demo
+        </p>
+
         <h1>Asset Document Manager</h1>
+
         <p>
           React frontend, Node.js API, Azure SQL metadata
           and Azure Blob Storage documents.
+        </p>
+
+        <p>
+          API: {API_URL}
         </p>
       </section>
 
       <section className="card">
         <h2>
-          {editingId ? "Edit asset" : "Add asset"}
+          {editingId
+            ? "Edit asset"
+            : "Add asset"}
         </h2>
 
         <form
@@ -228,7 +276,9 @@ function App() {
 
           <div className="actions wide">
             <button type="submit">
-              {editingId ? "Update asset" : "Create asset"}
+              {editingId
+                ? "Update asset"
+                : "Create asset"}
             </button>
 
             {editingId && (
@@ -253,7 +303,9 @@ function App() {
       <section className="card">
         <div className="table-header">
           <h2>Assets</h2>
+
           <button
+            type="button"
             className="secondary"
             onClick={loadAssets}
           >
@@ -282,12 +334,21 @@ function App() {
                 {assets.map((asset) => (
                   <tr key={asset.Id}>
                     <td>{asset.AssetName}</td>
-                    <td>{asset.AssetType || "-"}</td>
-                    <td>{asset.Location || "-"}</td>
+
+                    <td>
+                      {asset.AssetType || "-"}
+                    </td>
+
+                    <td>
+                      {asset.Location || "-"}
+                    </td>
+
                     <td>
                       {asset.OriginalFileName ? (
                         <a
                           href={`${API_URL}/api/assets/${asset.Id}/download`}
+                          target="_blank"
+                          rel="noreferrer"
                         >
                           {asset.OriginalFileName}
                         </a>
@@ -295,9 +356,11 @@ function App() {
                         "-"
                       )}
                     </td>
+
                     <td>
                       <div className="row-actions">
                         <button
+                          type="button"
                           className="secondary"
                           onClick={() =>
                             editAsset(asset)
@@ -307,6 +370,7 @@ function App() {
                         </button>
 
                         <button
+                          type="button"
                           className="danger"
                           onClick={() =>
                             deleteAsset(asset.Id)
